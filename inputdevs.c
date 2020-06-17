@@ -150,6 +150,59 @@ int inputdevs_read(lua_State *L) {
 	return 1;
 }
 
+
+int inputdevs_write(lua_State *L) {
+	FILE *stream;
+	size_t needed;
+	struct input_event *events;
+	size_t writed;
+	
+	luaL_checktype(L, 1, LUA_TLIGHTUSERDATA);
+	stream = (FILE*)lua_touserdata(L, 1);
+	
+	luaL_checktype(L, 2, LUA_TTABLE);
+	
+	lua_pushnil(L);
+	for(needed = 0; lua_next(L, 2); needed++) luaL_checktype(L, -1, LUA_TTABLE);
+	
+	if(!(events = calloc(needed, sizeof(struct input_event)))) return luaL_error(L, strerror(errno));
+	
+	lua_pushnil(L);
+	for(int i = 0; lua_next(L, 2) && i < needed; i++) {
+		
+		lua_pushstring(L, "sec");
+		if(lua_gettable(L, -2) == LUA_TNUMBER) events[i].input_event_sec = lua_tointeger(L, -1);
+		else events[i].input_event_sec = 0;
+		
+		lua_pushstring(L, "usec");
+		if(lua_gettable(L, -3) == LUA_TNUMBER) events[i].input_event_usec = lua_tointeger(L, -1);
+		else events[i].input_event_usec = 0;
+		
+		lua_pushstring(L, "type");
+		if(lua_gettable(L, -4) == LUA_TNUMBER) events[i].type = lua_tointeger(L, -1);
+		else events[i].type = 0;
+		
+		lua_pushstring(L, "code");
+		if(lua_gettable(L, -5) == LUA_TNUMBER) events[i].code = lua_tointeger(L, -1);
+		else events[i].code = 0;
+		
+		lua_pushstring(L, "value");
+		if(lua_gettable(L, -6) == LUA_TNUMBER) events[i].value = lua_tointeger(L, -1);
+		else events[i].value = 0;
+		
+		lua_pop(L, 6);
+	}
+	
+	if((writed = fwrite(events, sizeof(struct input_event), needed, stream)) == -1) {
+		free(events);
+		return luaL_error(L, strerror(errno));
+	}
+	
+	lua_pushinteger(L, writed);
+	
+	return 1;
+}
+
 int luaopen_inputdevs(lua_State *L) {
 	luaL_checkversion(L);
 	
@@ -158,6 +211,7 @@ int luaopen_inputdevs(lua_State *L) {
 		{"open", inputdevs_open},
 		{"set_nonblocking", inputdevs_set_nonblocking},
 		{"read", inputdevs_read},
+		{"write", inputdevs_write},
 		{"close", inputdevs_close},
 		{NULL, NULL}
 	};
