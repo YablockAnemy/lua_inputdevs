@@ -71,12 +71,21 @@ int inputdevs_open(lua_State *L) {
 	return 1;
 }
 
+int inputdevs_close(lua_State *L) {
+	
+	luaL_checktype(L, 1, LUA_TLIGHTUSERDATA);
+	if(fclose((FILE*)lua_touserdata(L, 1))) luaL_error(L, strerror(errno));
+	
+	return 0;
+}
+
 int luaopen_inputdevs(lua_State *L) {
 	luaL_checkversion(L);
 	
 	luaL_Reg inputdevs_reg[] = {
 		{"get_devs", inputdevs_get_devs},
 		{"open", inputdevs_open},
+		{"close", inputdevs_close},
 		{NULL, NULL}
 	};
 	
