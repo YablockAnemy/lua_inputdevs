@@ -2,6 +2,7 @@
 #include <lua5.3/lualib.h>
 #include <lua5.3/lua.h>
 #include <linux/input.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -51,7 +52,7 @@ int inputdevs_open(lua_State *L) {
 	luaL_checktype(L, 1, LUA_TSTRING);
 	path = (char*)lua_tostring(L, 1);
 	
-	if(lua_gettop(L) > 1){
+	if(lua_gettop(L) > 1) {
 		luaL_checktype(L, 2, LUA_TSTRING);
 		mode = (char*)lua_tostring(L, 2);
 		
@@ -96,6 +97,59 @@ int inputdevs_set_nonblocking(lua_State *L) {
 	return 0;
 }
 
+int inputdevs_read(lua_State *L) {
+	FILE *stream;
+	size_t needed;
+	struct input_event *events;
+	size_t readed;
+	
+	luaL_checktype(L, 1, LUA_TLIGHTUSERDATA);
+	stream = (FILE*)lua_touserdata(L, 1);
+	
+	if(lua_gettop(L) > 1) {
+		luaL_checktype(L, 2, LUA_TNUMBER);
+		needed = lua_tointeger(L, 2);
+	} else needed = 1;
+	
+	if(!(events = calloc(needed, sizeof(struct input_event)))) return luaL_error(L, strerror(errno));
+	if((readed = fread(events, sizeof(struct input_event), needed, stream)) == -1) {
+		free(events);
+		return luaL_error(L, strerror(errno));
+	}
+	
+	lua_newtable(L);
+	for(int i = 0; i < readed; i++) {
+		lua_pushinteger(L, i+1);
+		lua_newtable(L);
+		
+		lua_pushstring(L, "sec");
+		lua_pushinteger(L, events[i].input_event_sec);
+		lua_settable(L, -3);
+		
+		lua_pushstring(L, "usec");
+		lua_pushinteger(L, events[i].input_event_usec);
+		lua_settable(L, -3);
+		
+		lua_pushstring(L, "type");
+		lua_pushinteger(L, events[i].type);
+		lua_settable(L, -3);
+		
+		lua_pushstring(L, "code");
+		lua_pushinteger(L, events[i].code);
+		lua_settable(L, -3);
+		
+		lua_pushstring(L, "value");
+		lua_pushinteger(L, events[i].value);
+		lua_settable(L, -3);
+		
+		lua_settable(L, -3);
+	}
+	
+	free(events);
+	
+	return 1;
+}
+
 int luaopen_inputdevs(lua_State *L) {
 	luaL_checkversion(L);
 	
@@ -103,6 +157,7 @@ int luaopen_inputdevs(lua_State *L) {
 		{"get_devs", inputdevs_get_devs},
 		{"open", inputdevs_open},
 		{"set_nonblocking", inputdevs_set_nonblocking},
+		{"read", inputdevs_read},
 		{"close", inputdevs_close},
 		{NULL, NULL}
 	};
