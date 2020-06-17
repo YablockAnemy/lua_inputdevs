@@ -4,6 +4,7 @@
 #include <linux/input.h>
 #include <stdio.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <string.h>
 
@@ -23,7 +24,7 @@ int inputdevs_get_devs(lua_State *L) {
 		
 	} else dir_path = "/dev/input/";
 	
-	if(!(dir_stream = opendir(dir_path))) luaL_error(L, strerror(errno));
+	if(!(dir_stream = opendir(dir_path))) return luaL_error(L, strerror(errno));
 	
 	lua_newtable(L);
 	for(int i = 1; (dirent = readdir(dir_stream)); i++)
@@ -37,7 +38,7 @@ int inputdevs_get_devs(lua_State *L) {
 			lua_settable(L, -3);
 	}
 	
-	if(closedir(dir_stream)) luaL_error(L, strerror(errno));
+	if(closedir(dir_stream)) return luaL_error(L, strerror(errno));
 	
 	return 1;
 }
@@ -64,7 +65,7 @@ int inputdevs_open(lua_State *L) {
 		
 	} else mode = "a+";
 	
-	if(!(stream = fopen(path, mode))) luaL_error(L, strerror(errno));
+	if(!(stream = fopen(path, mode))) return luaL_error(L, strerror(errno));
 	
 	lua_pushlightuserdata(L, stream);
 	
@@ -74,7 +75,23 @@ int inputdevs_open(lua_State *L) {
 int inputdevs_close(lua_State *L) {
 	
 	luaL_checktype(L, 1, LUA_TLIGHTUSERDATA);
-	if(fclose((FILE*)lua_touserdata(L, 1))) luaL_error(L, strerror(errno));
+	if(fclose((FILE*)lua_touserdata(L, 1))) return luaL_error(L, strerror(errno));
+	
+	return 0;
+}
+
+int inputdevs_set_nonblocking(lua_State *L) {
+	FILE *stream;
+	int fd;
+	int flags;
+	
+	luaL_checktype(L, 1, LUA_TLIGHTUSERDATA);
+	stream = (FILE*)lua_touserdata(L, 1);
+	
+	fd = fileno(stream);
+	
+	if((flags = fcntl(fd, F_GETFL, 0)) == -1) return luaL_error(L, strerror(errno));
+	if(fcntl(fd, F_SETFL, flags | O_NONBLOCK)) return luaL_error(L, strerror(errno));
 	
 	return 0;
 }
@@ -85,6 +102,7 @@ int luaopen_inputdevs(lua_State *L) {
 	luaL_Reg inputdevs_reg[] = {
 		{"get_devs", inputdevs_get_devs},
 		{"open", inputdevs_open},
+		{"set_nonblocking", inputdevs_set_nonblocking},
 		{"close", inputdevs_close},
 		{NULL, NULL}
 	};
