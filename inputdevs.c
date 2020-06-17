@@ -42,11 +42,41 @@ int inputdevs_get_devs(lua_State *L) {
 	return 1;
 }
 
+int inputdevs_open(lua_State *L) {
+	char *path;
+	char *mode;
+	FILE *stream;
+	
+	luaL_checktype(L, 1, LUA_TSTRING);
+	path = (char*)lua_tostring(L, 1);
+	
+	if(lua_gettop(L) > 1){
+		luaL_checktype(L, 2, LUA_TSTRING);
+		mode = (char*)lua_tostring(L, 2);
+		
+		if(strcmp(mode, "r"))
+		if(strcmp(mode, "r+"))
+		if(strcmp(mode, "w"))
+		if(strcmp(mode, "w+"))
+		if(strcmp(mode, "a"))
+		if(strcmp(mode, "a+"))
+			return luaL_argerror(L, 2, "invalid value");
+		
+	} else mode = "a+";
+	
+	if(!(stream = fopen(path, mode))) luaL_error(L, strerror(errno));
+	
+	lua_pushlightuserdata(L, stream);
+	
+	return 1;
+}
+
 int luaopen_inputdevs(lua_State *L) {
 	luaL_checkversion(L);
 	
 	luaL_Reg inputdevs_reg[] = {
 		{"get_devs", inputdevs_get_devs},
+		{"open", inputdevs_open},
 		{NULL, NULL}
 	};
 	
